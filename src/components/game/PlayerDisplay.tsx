@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Player, PlayerCard as PlayerCardType, CardStats } from '@/types/game';
@@ -73,7 +74,12 @@ export function PlayerDisplay({
             {isBattleZoneCard ? "Waiting..." : (player.cards.length === 0 && player.isCurrentUser ? "No cards left!" : "No cards to show")}
           </div>
         )}
-         {/* Show card backs for opponent if not battle zone and cards exist */}
+         {/* 
+           For the opponent's hand (when not their battle card):
+           - If the opponent has cards, render one card back for each card they hold.
+           - This visually represents their hand size without revealing the cards.
+           - This ensures there are no "empty" card slots if the opponent has cards.
+        */}
         {!player.isCurrentUser && !isBattleZoneCard && player.cards.length > 0 &&
           Array.from({ length: player.cards.length }).map((_, index) => (
              <CricketCard key={`back-${index}`} card={null} isFaceUp={false} compact />
@@ -83,3 +89,4 @@ export function PlayerDisplay({
     </div>
   );
 }
+

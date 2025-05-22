@@ -53,6 +53,12 @@ export function generateDeck(numCards: number = 20): PlayerCard[] {
   return deck;
 }
 
+/**
+ * Deals cards from the deck to the specified number of players.
+ * Ensures that cards are distributed as evenly as possible, resulting in players
+ * starting with an equal number of cards if the total number of cards is divisible
+ * by the number of players.
+ */
 export function dealCards(deck: PlayerCard[], numPlayers: number): PlayerCard[][] {
   const shuffledDeck = [...deck].sort(() => Math.random() - 0.5);
   const hands: PlayerCard[][] = Array(numPlayers).fill(null).map(() => []);
@@ -62,20 +68,25 @@ export function dealCards(deck: PlayerCard[], numPlayers: number): PlayerCard[][
   return hands;
 }
 
+/**
+ * Initializes player objects with their dealt hands.
+ * Both players (user and opponent) receive cards from the 'hands' array,
+ * ensuring they start with the cards allocated by the dealCards function.
+ */
 export function getInitialPlayers(hands: PlayerCard[][]): Player[] {
     return [
         { 
             id: 'player1', 
             name: 'You', 
             isCurrentUser: true, 
-            cards: hands[0] || [], 
+            cards: hands[0] || [], // Player 1 gets the first hand
             avatarUrl: 'https://placehold.co/100x100.png' 
         },
         { 
             id: 'player2', 
             name: 'Opponent', 
             isCurrentUser: false, 
-            cards: hands[1] || [], 
+            cards: hands[1] || [], // Player 2 gets the second hand
             avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwbGF5ZXIlMjBhdmF0YXJ8ZW58MHx8fHwxNzQ3OTM3MjQwfDA&ixlib=rb-4.1.0&q=80&w=1080' 
         },
     ];
