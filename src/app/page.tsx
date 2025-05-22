@@ -1,15 +1,24 @@
 
+"use client"; // Add "use client" for useState and event handlers
+
+import { useState, useEffect } from 'react'; // Import useState and useEffect
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, LogIn, PlusCircle, Dices, Cpu } from "lucide-react"; // Added Cpu icon
+import { Users, LogIn, PlusCircle, Dices, Cpu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
 export default function HomePage() {
-  const newSquadId = `squad-${Math.random().toString(36).substring(2, 8)}`;
+  const [newSquadId, setNewSquadId] = useState('');
+  const [inviteCode, setInviteCode] = useState(''); // State for invite code input
+
+  useEffect(() => {
+    // Generate newSquadId only on the client-side to avoid hydration mismatch
+    setNewSquadId(`squad-${Math.random().toString(36).substring(2, 8)}`);
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -40,7 +49,7 @@ export default function HomePage() {
           <Tabs defaultValue="create" className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-lg">
               <TabsTrigger value="create" className="py-2.5 data-[state=active]:bg-background data-[state=active]:text-accent-foreground data-[state=active]:shadow-md rounded-md">
-                <Cpu className="mr-2 h-5 w-5" /> Play vs Computer {/* Changed icon and text */}
+                <Cpu className="mr-2 h-5 w-5" /> Play vs Computer
               </TabsTrigger>
               <TabsTrigger value="join" className="py-2.5 data-[state=active]:bg-background data-[state=active]:text-accent-foreground data-[state=active]:shadow-md rounded-md">
                 <LogIn className="mr-2 h-5 w-5" /> Join Squad
@@ -49,21 +58,21 @@ export default function HomePage() {
             <TabsContent value="create">
               <Card className="shadow-xl border-primary/20 mt-2">
                 <CardHeader>
-                  <CardTitle>Play Against The Computer</CardTitle> {/* Changed title */}
-                  <CardDescription>Start a new game against an AI opponent.</CardDescription> {/* Changed description */}
+                  <CardTitle>Play Against The Computer</CardTitle>
+                  <CardDescription>Start a new game against an AI opponent.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    A new game ID will be generated for your session.
-                  </p> {/* Changed text */}
+                    A new game ID will be generated for your session. You can share this with a friend for them to join (feature coming soon for true multiplayer).
+                  </p>
                   <div className="flex items-center space-x-2 p-3 bg-secondary rounded-md">
-                     <Label htmlFor="squadId" className="text-secondary-foreground">New Game ID:</Label> {/* Changed label */}
+                     <Label htmlFor="squadId" className="text-secondary-foreground">New Game ID:</Label>
                      <Input id="squadId" value={newSquadId} readOnly className="font-mono bg-background"/>
                   </div>
                 </CardContent>
                 <CardFooter>
                   <Button asChild size="lg" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                    <Link href={`/play/${newSquadId}`}>
+                    <Link href={newSquadId ? `/play/${newSquadId}` : '#'}>
                       <Users className="mr-2 h-5 w-5" /> Start Playing
                     </Link>
                   </Button>
@@ -74,17 +83,25 @@ export default function HomePage() {
               <Card className="shadow-xl border-primary/20 mt-2">
                 <CardHeader>
                   <CardTitle>Join an Existing Squad</CardTitle>
-                  <CardDescription>Enter an invite code to join a game with a friend.</CardDescription> {/* Adjusted description slightly */}
+                  <CardDescription>Enter an invite code to join a game with a friend.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
                     <Label htmlFor="inviteCode">Invite Code</Label>
-                    <Input id="inviteCode" placeholder="Enter squad invite code" className="mt-1" />
+                    <Input 
+                      id="inviteCode" 
+                      placeholder="Enter squad invite code" 
+                      className="mt-1" 
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                    />
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button size="lg" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled> 
-                    <Users className="mr-2 h-5 w-5" /> Join Game (Coming Soon)
+                  <Button asChild size="lg" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={!inviteCode.trim()}> 
+                    <Link href={inviteCode.trim() ? `/play/${inviteCode.trim()}` : '#'}>
+                      <Users className="mr-2 h-5 w-5" /> Join Game
+                    </Link>
                   </Button>
                 </CardFooter>
               </Card>
