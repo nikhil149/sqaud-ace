@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { PlayerCard as PlayerCardType, CardStats } from '@/types/game';
@@ -63,11 +64,12 @@ export function CricketCard({
         compact ? "w-32 h-48" : "w-48 h-72 md:w-56 md:h-[22rem]",
         isSelected && isFaceUp ? "ring-4 ring-accent" : "",
         onCardClick && isFaceUp ? "cursor-pointer" : "",
+        !isFaceUp && "flipped", // Apply 'flipped' to card-container when not face up
         className
       )}
       onClick={handleCardClick}
     >
-      <div className={cn("card-inner", isFaceUp ? "" : "flipped")}>
+      <div className={cn("card-inner")}> {/* 'flipped' class removed from here */}
         <Card className={cn("card-front bg-card overflow-hidden", compact ? "p-2" : "p-0")}>
           {card && (
             <>
