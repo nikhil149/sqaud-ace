@@ -161,16 +161,15 @@ export function GameBoard({ squadId }: { squadId: string }) {
     }
 
     const statName = gameState.currentSelectedStatName;
-    // Ensure selections are ordered by player ID for consistent access if needed, or find by ID.
-    const player1 = gameState.players.find(p => p.id === 'player1')!; // Assuming player1 is current user
-    const player2 = gameState.players.find(p => p.id === 'player2')!; // Assuming player2 is opponent
+    const player1 = gameState.players.find(p => p.id === 'player1')!; 
+    const player2 = gameState.players.find(p => p.id === 'player2')!; 
 
     const player1Selection = gameState.currentSelectedCards.find(s => s.playerId === player1.id);
     const player2Selection = gameState.currentSelectedCards.find(s => s.playerId === player2.id);
 
 
     if (!player1Selection || !player2Selection) {
-        checkGameOver(); // Should not happen if logic is correct, but good failsafe
+        checkGameOver(); 
         return;
     }
 
@@ -184,6 +183,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
     let roundLoserId: string;
     let winningCard: PlayerCardType;
     let losingCard: PlayerCardType;
+    let roundMessageText = "";
 
     if (player1StatValue > player2StatValue) {
       roundWinnerId = player1.id;
@@ -196,11 +196,11 @@ export function GameBoard({ squadId }: { squadId: string }) {
       winningCard = player2Card;
       losingCard = player1Card;
     } else {
+       roundMessageText = `It's a draw on ${player1Card.stats[statName].label} (${player1StatValue} vs ${player2StatValue})! Cards return.`;
       updateGameState({
         phase: 'round_over',
         turnPlayerId: null, 
-        roundMessage: `It's a draw on ${player1Card.stats[statName].label}! Cards return. Next turn determined by previous winner or toss.`,
-        // currentSelectedCards are kept to display them during round_over
+        roundMessage: roundMessageText,
       });
       setTimeout(checkGameOver, 2500); 
       return;
@@ -218,27 +218,40 @@ export function GameBoard({ squadId }: { squadId: string }) {
       description: `${winnerPlayer.name} wins the round with ${winningStatLabel} (${winningStatValue} vs ${losingStatValue})! They take ${losingCard.name}.`,
     });
 
-    const roundMessageText = `${winnerPlayer.name} won with ${winningStatLabel} (${winningStatValue} vs ${losingStatValue})! They take ${losingCard.name}.`;
+    roundMessageText = `${winnerPlayer.name} won with ${winningStatLabel} (${winningStatValue} vs ${losingStatValue}) and takes ${losingCard.name}!`;
 
     const updatedPlayers = gameState.players.map(p => {
       if (p.id === roundWinnerId) {
-        return { ...p, cards: [...p.cards, losingCard] };
+        return { ...p, cards: [...p.cards.filter(c => c.id !== winningCard.id), winningCard, losingCard] };
       }
       if (p.id === roundLoserId) {
         return { ...p, cards: p.cards.filter(c => c.id !== losingCard.id) };
       }
       return p;
+    }).map(p => { // Remove the winning card from the winner's hand IF it was there (it always is, this is to prevent duplication if logic changes)
+        if (p.id === roundWinnerId) {
+            const uniqueCards = p.cards.reduce((acc, current) => {
+                const x = acc.find(item => item.id === current.id);
+                if (!x) {
+                    return acc.concat([current]);
+                } else {
+                    return acc;
+                }
+            }, [] as PlayerCardType[]);
+            return { ...p, cards: uniqueCards };
+        }
+        return p;
     });
+
 
     updateGameState({
       players: updatedPlayers,
       phase: 'round_over',
       turnPlayerId: null, 
       roundMessage: roundMessageText,
-       // currentSelectedCards are kept to display them during round_over
     });
     
-    setTimeout(checkGameOver, 2500); // Increased delay to see round message and card state
+    setTimeout(checkGameOver, 3500); 
   };
 
   const checkGameOver = () => {
@@ -269,34 +282,18 @@ export function GameBoard({ squadId }: { squadId: string }) {
   const prepareNextTurn = () => {
     if(!gameState || gameState.phase === 'game_over') return; 
     
-    // Next turn goes to the winner of the previous round, or alternates if draw, or follows toss winner logic.
-    // For simplicity, let's alternate for now if not a draw. If draw, keep current player.
-    // A more robust system would track the round winner for this. CurrentPlayerId reflects toss winner.
-    // Let's make turnPlayerId alternate based on currentPlayerId.
-    // The current currentPlayerId is the one who WON THE TOSS or the last round if we update it.
-    // Let's assume for now the turn alternates. The player who just had 'currentPlayerId' set by toss or by winning a round.
-    
-    // If previous round was a draw, the 'currentPlayerId' (who won the toss or last non-draw round) starts again.
-    // Otherwise, the turn switches.
-    let nextTurnPlayerId = gameState.currentPlayerId; // Default to current toss/round winner
+    let actualNextPlayerId = gameState.currentPlayerId; 
     const lastRoundWasDraw = gameState.roundMessage.toLowerCase().includes("draw");
 
     if (!lastRoundWasDraw) {
-       nextTurnPlayerId = gameState.currentPlayerId === 'player1' ? 'player2' : 'player1';
+       actualNextPlayerId = gameState.players.find(p => p.id !== gameState.currentPlayerId)?.id || 'player1';
     }
-     // Update currentPlayerId to reflect who will actually play next. This is important for turn logic.
-     // However, currentPlayerId was meant for overall game state (like toss winner). Let's use turnPlayerId for actual turns.
-
-    const actualNextPlayerId = lastRoundWasDraw 
-      ? gameState.currentPlayerId // Player who had the turn initiative (won toss/last round) plays again on draw
-      : (gameState.currentPlayerId === 'player1' ? 'player2' : 'player1');
-
-
+    
     const nextPlayerToAct = gameState.players.find(p => p.id === actualNextPlayerId);
 
     updateGameState({
-      currentPlayerId: actualNextPlayerId, // This player has the initiative for the next round
-      turnPlayerId: actualNextPlayerId, // This player will act first
+      currentPlayerId: actualNextPlayerId, 
+      turnPlayerId: actualNextPlayerId, 
       phase: nextPlayerToAct?.isCurrentUser ? 'player_turn_select_card' : 'opponent_turn_select_card_and_stat',
       currentSelectedCards: [], 
       currentSelectedStatName: null,
@@ -369,6 +366,10 @@ export function GameBoard({ squadId }: { squadId: string }) {
         const player1Selection = gameState.currentSelectedCards.find(s => s.playerId === 'player1');
         const player2Selection = gameState.currentSelectedCards.find(s => s.playerId === 'player2');
         
+        const showBattleArenaCards = 
+            (gameState.phase === 'reveal' || gameState.phase === 'round_over' || gameState.phase === 'player_turn_respond_to_opponent_challenge') && 
+            gameState.currentSelectedCards.length > 0;
+
         return (
           <div className="space-y-6 md:space-y-8 w-full">
             {opponent && (
@@ -381,14 +382,12 @@ export function GameBoard({ squadId }: { squadId: string }) {
             <Card className="min-h-[20rem] md:min-h-[26rem] flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
                <CardHeader>
                 <CardTitle className="flex items-center justify-center gap-2 text-xl md:text-2xl">
-                  {(gameState.phase === 'reveal' || gameState.phase === 'round_over') && gameState.currentSelectedCards.length > 0 ? <Swords /> : <Info />}
+                  {(gameState.phase === 'reveal' || gameState.phase === 'round_over' || gameState.phase === 'player_turn_respond_to_opponent_challenge') && gameState.currentSelectedCards.length > 0 ? <Swords /> : <Info />}
                   Battle Arena
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-grow flex flex-col items-center justify-center w-full p-2 md:p-4">
-                {(gameState.phase === 'reveal' || gameState.phase === 'round_over') && 
-                 gameState.currentSelectedCards.length > 0 && // Check if there are cards to display
-                  (
+                {showBattleArenaCards && (
                   <div className="flex flex-col md:flex-row items-start md:items-center justify-around gap-4 md:gap-8 w-full mb-4">
                     {gameState.currentSelectedCards.map(selection => {
                        let isWinningCardInBattle = false;
@@ -430,7 +429,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
                 )}
                 <p className={cn(
                   "mt-2 text-center w-full px-2",
-                  (gameState.phase === 'reveal' || (gameState.phase === 'round_over' && gameState.currentSelectedCards.length > 0))
+                  (gameState.phase === 'reveal' || (gameState.phase === 'round_over' && gameState.currentSelectedCards.length > 0) || gameState.phase === 'player_turn_respond_to_opponent_challenge')
                     ? "text-lg font-semibold" 
                     : "text-sm text-muted-foreground",
                   gameState.phase === 'reveal' ? "text-accent animate-pulse" : "",
@@ -467,7 +466,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
                     <AlertDescription>
                         {gameState.phase === 'player_turn_select_card' && "Select a card from your hand to play."}
                         {gameState.phase === 'player_turn_select_stat' && (selectedCardByCurrentUser ? `Selected: ${selectedCardByCurrentUser.name}. Now pick a stat.` : "Pick a stat.")}
-                        {gameState.phase === 'player_turn_respond_to_opponent_challenge' && `Opponent has played. Select your card to respond using the challenged stat: ${gameState.currentSelectedStatName ? gameState.players.find(p=>p.isCurrentUser)?.cards[0]?.stats[gameState.currentSelectedStatName]?.label : ''}.`}
+                        {gameState.phase === 'player_turn_respond_to_opponent_challenge' && `Opponent has played. Select your card to respond using the challenged stat: ${gameState.currentSelectedStatName && currentUser?.cards[0] ? currentUser.cards[0].stats[gameState.currentSelectedStatName]?.label : ''}.`}
                     </AlertDescription>
                 </Alert>
             )}
