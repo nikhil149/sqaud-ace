@@ -158,6 +158,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
     let roundLoserId: string;
     let winningCard: PlayerCardType;
     let losingCard: PlayerCardType;
+    let roundMessageText: string;
 
     if (player1StatValue > player2StatValue) {
       roundWinnerId = 'player1';
@@ -181,11 +182,17 @@ export function GameBoard({ squadId }: { squadId: string }) {
 
     const winnerPlayer = gameState.players.find(p => p.id === roundWinnerId)!;
     const loserPlayer = gameState.players.find(p => p.id === roundLoserId)!;
+    
+    const winningStatLabel = winningCard.stats[statName].label;
+    const winningStatValue = winningCard.stats[statName].value;
+    const losingStatValue = losingCard.stats[statName].value;
 
     toast({
       title: "Round Result",
-      description: `${winnerPlayer.name} wins the round with ${winningCard.stats[statName].label} (${winningCard.stats[statName].value} vs ${losingCard.stats[statName].value})!`,
+      description: `${winnerPlayer.name} wins the round with ${winningStatLabel} (${winningStatValue} vs ${losingStatValue})!`,
     });
+
+    roundMessageText = `${winnerPlayer.name} won with ${winningStatLabel} (${winningStatValue} vs ${losingStatValue})! They take ${losingCard.name}.`;
 
     const updatedPlayers = gameState.players.map(p => {
       if (p.id === roundWinnerId) {
@@ -200,7 +207,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
     updateGameState({
       players: updatedPlayers,
       phase: 'round_over',
-      roundMessage: `${winnerPlayer.name} won the round! They take ${losingCard.name} from ${loserPlayer.name}.`,
+      roundMessage: roundMessageText,
        // currentSelectedCards are kept to display them during round_over
     });
     
@@ -297,6 +304,9 @@ export function GameBoard({ squadId }: { squadId: string }) {
           </Card>
         );
       default: 
+        const player1Selection = gameState.currentSelectedCards.find(s => s.playerId === 'player1');
+        const player2Selection = gameState.currentSelectedCards.find(s => s.playerId === 'player2');
+        
         return (
           <div className="space-y-6 md:space-y-8 w-full">
             {opponent && (
@@ -315,26 +325,45 @@ export function GameBoard({ squadId }: { squadId: string }) {
               </CardHeader>
               <CardContent className="flex-grow flex flex-col items-center justify-center w-full p-2 md:p-4">
                 {(gameState.phase === 'reveal' || gameState.phase === 'round_over') && 
-                 gameState.currentSelectedCards.length === TOTAL_PLAYERS && (
+                 gameState.currentSelectedCards.length === TOTAL_PLAYERS && player1Selection && player2Selection && (
                   <div className="flex flex-col md:flex-row items-start md:items-center justify-around gap-4 md:gap-8 w-full mb-4">
-                    {gameState.currentSelectedCards.map(selection => (
-                      <div key={selection.playerId} className="flex flex-col items-center">
-                        <p className="font-semibold mb-1 text-sm text-foreground/80">
-                          {gameState.players.find(p=>p.id === selection.playerId)?.name}'s Card
-                        </p>
-                        <CricketCard card={selection.card} isFaceUp={true} compact={false} />
-                        {gameState.currentSelectedStatName && (
-                           <div className="mt-2 p-2 border-2 border-accent rounded-lg bg-accent/10 shadow-md text-center">
-                            <p className="text-xs text-accent-foreground/80 uppercase tracking-wider font-medium">
-                              {selection.card.stats[gameState.currentSelectedStatName].label}
-                            </p>
-                            <p className="text-2xl font-bold text-accent-foreground">
-                              {selection.card.stats[gameState.currentSelectedStatName].value}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                    {gameState.currentSelectedCards.map(selection => {
+                       let isWinningCardInBattle = false;
+                       if (gameState.phase === 'round_over' && gameState.currentSelectedStatName) {
+                           const p1Val = player1Selection.card.stats[gameState.currentSelectedStatName].value;
+                           const p2Val = player2Selection.card.stats[gameState.currentSelectedStatName].value;
+                           if (p1Val > p2Val && selection.playerId === player1Selection.playerId) {
+                               isWinningCardInBattle = true;
+                           } else if (p2Val > p1Val && selection.playerId === player2Selection.playerId) {
+                               isWinningCardInBattle = true;
+                           }
+                       }
+                      return (
+                        <div key={selection.playerId} className={cn(
+                            "flex flex-col items-center transition-all duration-300",
+                            isWinningCardInBattle ? "transform scale-105 shadow-2xl rounded-lg bg-primary/10 p-1" : ""
+                          )}>
+                          <p className="font-semibold mb-1 text-sm text-foreground/80">
+                            {gameState.players.find(p=>p.id === selection.playerId)?.name}'s Card
+                            {isWinningCardInBattle && <span className="ml-2 text-xs font-bold text-primary">(Winner!)</span>}
+                          </p>
+                          <CricketCard card={selection.card} isFaceUp={true} compact={false} />
+                          {gameState.currentSelectedStatName && (
+                             <div className={cn(
+                               "mt-2 p-2 border-2 rounded-lg shadow-md text-center",
+                               isWinningCardInBattle ? "border-primary bg-primary/20" : "border-accent bg-accent/10"
+                              )}>
+                              <p className="text-xs uppercase tracking-wider font-medium">
+                                {selection.card.stats[gameState.currentSelectedStatName].label}
+                              </p>
+                              <p className="text-2xl font-bold">
+                                {selection.card.stats[gameState.currentSelectedStatName].value}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 <p className={cn(
