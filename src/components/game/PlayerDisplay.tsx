@@ -75,18 +75,17 @@ export function PlayerDisplay({
           </div>
         )}
          {/* 
-           For the opponent's hand (when not their battle card):
-           - If the opponent has cards, render one card back for each card they hold.
-           - This visually represents their hand size without revealing the cards.
-           - This ensures there are no "empty" card slots if the opponent has cards.
+           The main cardsToDisplay.map loop already handles rendering opponent's cards as face-down compact cards.
+           The block below was likely redundant and caused extra "empty" card back visuals.
         */}
+        {/* 
         {!player.isCurrentUser && !isBattleZoneCard && player.cards.length > 0 &&
           Array.from({ length: player.cards.length }).map((_, index) => (
              <CricketCard key={`back-${index}`} card={null} isFaceUp={false} compact />
           ))
         }
+        */}
       </div>
     </div>
   );
 }
-
