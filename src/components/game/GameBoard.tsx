@@ -103,10 +103,18 @@ export function GameBoard({ squadId }: { squadId: string }) {
       if (!currentUser || !gameState.currentSelectedStatName) return;
 
       const updatedSelectedCards = [...gameState.currentSelectedCards, { playerId: currentUser.id, card: card }];
+      // Ensure the opponent's card (which initiated the challenge) is also in updatedSelectedCards if not already.
+      // It should be the first element if this logic is correct.
+      const opponentCardSelection = gameState.currentSelectedCards[0];
+      let finalSelectedCards = updatedSelectedCards;
+      if (opponentCardSelection && !updatedSelectedCards.find(sc => sc.playerId === opponentCardSelection.playerId)) {
+        finalSelectedCards = [opponentCardSelection, ...updatedSelectedCards.filter(sc => sc.playerId !== opponentCardSelection.playerId)];
+      }
+      
       const statLabel = card.stats[gameState.currentSelectedStatName].label;
       
       updateGameState({
-        currentSelectedCards: updatedSelectedCards,
+        currentSelectedCards: finalSelectedCards,
         phase: 'reveal',
         turnPlayerId: null, // No one's specific turn during reveal
         roundMessage: `You responded with ${card.name}. Comparing ${statLabel}!`
@@ -119,14 +127,13 @@ export function GameBoard({ squadId }: { squadId: string }) {
     if (!gameState) return;
     const opponent = gameState.players.find(p => !p.isCurrentUser);
     if (!opponent || opponent.cards.length === 0) {
-        resolveRound(); // Or check game over if opponent has no cards
+        resolveRound(); 
         return;
     }
 
     const opponentCard = opponent.cards[Math.floor(Math.random() * opponent.cards.length)];
     
     if (gameState.phase === 'opponent_turn_select_card_and_stat') {
-        // Opponent is starting the round: selects a card AND a stat
         const statsKeys = Object.keys(opponentCard.stats) as (keyof CardStats)[];
         const opponentChosenStat = statsKeys[Math.floor(Math.random() * statsKeys.length)];
         const statLabel = opponentCard.stats[opponentChosenStat].label;
@@ -135,18 +142,24 @@ export function GameBoard({ squadId }: { squadId: string }) {
             currentSelectedCards: [{ playerId: opponent.id, card: opponentCard }],
             currentSelectedStatName: opponentChosenStat,
             phase: 'player_turn_respond_to_opponent_challenge',
-            turnPlayerId: gameState.players.find(p => p.isCurrentUser)?.id || null, // User's turn to respond
+            turnPlayerId: gameState.players.find(p => p.isCurrentUser)?.id || null, 
             roundMessage: `Opponent selected ${opponentCard.name} and challenges with ${statLabel}. Select your card to respond!`,
         });
 
     } else if (gameState.phase === 'opponent_turn_selecting_card' && gameState.currentSelectedStatName) {
-        // Opponent is responding to user's stat selection
-        const updatedSelectedCards = [...gameState.currentSelectedCards, { playerId: opponent.id, card: opponentCard }];
-        const statLabel = opponentCard.stats[gameState.currentSelectedStatName].label;
+        const userCardSelection = gameState.currentSelectedCards.find(sc => sc.playerId === gameState.players.find(p => p.isCurrentUser)?.id);
+        if (!userCardSelection) { // Should not happen if logic is correct
+            console.error("User card selection not found in opponent_turn_selecting_card");
+            prepareNextTurn();
+            return;
+        }
+        
+        const updatedSelectedCards = [userCardSelection, { playerId: opponent.id, card: opponentCard }];
+        const statLabel = opponentCard.stats[gameState.currentSelectedStatName].label; // or userCardSelection.card.stats...
         updateGameState({
             currentSelectedCards: updatedSelectedCards,
             phase: 'reveal',
-            turnPlayerId: null, // No one's specific turn during reveal
+            turnPlayerId: null, 
             roundMessage: `Opponent responded with ${opponentCard.name}. Comparing ${statLabel}!`,
         });
         setTimeout(resolveRound, 1500);
@@ -156,7 +169,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
 
   const resolveRound = () => {
     if (!gameState || !gameState.currentSelectedStatName || gameState.currentSelectedCards.length < TOTAL_PLAYERS) {
-      checkGameOver(); // This might happen if a player runs out of cards before selection
+      checkGameOver(); 
       return;
     }
 
@@ -181,8 +194,8 @@ export function GameBoard({ squadId }: { squadId: string }) {
 
     let roundWinnerId: string;
     let roundLoserId: string;
-    let winningCard: PlayerCardType;
-    let losingCard: PlayerCardType;
+    let winningCard: PlayerCardType; // The card object that won the comparison
+    let losingCard: PlayerCardType;  // The card object that lost the comparison
     let roundMessageText = "";
 
     if (player1StatValue > player2StatValue) {
@@ -200,6 +213,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
       updateGameState({
         phase: 'round_over',
         turnPlayerId: null, 
+        currentSelectedCards: gameState.currentSelectedCards, // Keep cards for display
         roundMessage: roundMessageText,
       });
       setTimeout(checkGameOver, 2500); 
@@ -222,32 +236,35 @@ export function GameBoard({ squadId }: { squadId: string }) {
 
     const updatedPlayers = gameState.players.map(p => {
       if (p.id === roundWinnerId) {
-        return { ...p, cards: [...p.cards.filter(c => c.id !== winningCard.id), winningCard, losingCard] };
+        // Add the losing card to winner's hand, ensure winning card is also there (if it wasn't a temporary object)
+        // Remove losing card from winner's hand first (if it somehow was there, defensive) then add it
+        const newHand = [...p.cards.filter(c => c.id !== losingCard.id), losingCard];
+        // Ensure winning card is still in hand (it should be, as it was selected from hand)
+        if (!newHand.find(c => c.id === winningCard.id)) {
+            newHand.push(winningCard);
+        }
+        // Remove duplicates by ID, preferring the one that might have updated state if applicable
+        const uniqueCards = newHand.reduce((acc, current) => {
+            if (!acc.find(item => item.id === current.id)) {
+                acc.push(current);
+            }
+            return acc;
+        }, [] as PlayerCardType[]);
+        return { ...p, cards: uniqueCards };
       }
       if (p.id === roundLoserId) {
+        // Remove the losing card from loser's hand
         return { ...p, cards: p.cards.filter(c => c.id !== losingCard.id) };
       }
       return p;
-    }).map(p => { // Remove the winning card from the winner's hand IF it was there (it always is, this is to prevent duplication if logic changes)
-        if (p.id === roundWinnerId) {
-            const uniqueCards = p.cards.reduce((acc, current) => {
-                const x = acc.find(item => item.id === current.id);
-                if (!x) {
-                    return acc.concat([current]);
-                } else {
-                    return acc;
-                }
-            }, [] as PlayerCardType[]);
-            return { ...p, cards: uniqueCards };
-        }
-        return p;
     });
 
 
     updateGameState({
       players: updatedPlayers,
       phase: 'round_over',
-      turnPlayerId: null, 
+      turnPlayerId: null,
+      currentSelectedCards: gameState.currentSelectedCards, // Keep cards for display
       roundMessage: roundMessageText,
     });
     
@@ -367,8 +384,11 @@ export function GameBoard({ squadId }: { squadId: string }) {
         const player2Selection = gameState.currentSelectedCards.find(s => s.playerId === 'player2');
         
         const showBattleArenaCards = 
-            (gameState.phase === 'reveal' || gameState.phase === 'round_over' || gameState.phase === 'player_turn_respond_to_opponent_challenge') && 
-            gameState.currentSelectedCards.length > 0;
+            (gameState.phase === 'reveal' || 
+             gameState.phase === 'round_over' || 
+             gameState.phase === 'player_turn_respond_to_opponent_challenge' ||
+             gameState.phase === 'opponent_turn_selecting_card' // Added this phase
+            ) && gameState.currentSelectedCards.length > 0;
 
         return (
           <div className="space-y-6 md:space-y-8 w-full">
@@ -382,7 +402,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
             <Card className="min-h-[20rem] md:min-h-[26rem] flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden">
                <CardHeader>
                 <CardTitle className="flex items-center justify-center gap-2 text-xl md:text-2xl">
-                  {(gameState.phase === 'reveal' || gameState.phase === 'round_over' || gameState.phase === 'player_turn_respond_to_opponent_challenge') && gameState.currentSelectedCards.length > 0 ? <Swords /> : <Info />}
+                  {(gameState.phase === 'reveal' || gameState.phase === 'round_over' || gameState.phase === 'player_turn_respond_to_opponent_challenge' || gameState.phase === 'opponent_turn_selecting_card') && gameState.currentSelectedCards.length > 0 ? <Swords /> : <Info />}
                   Battle Arena
                 </CardTitle>
               </CardHeader>
@@ -409,7 +429,9 @@ export function GameBoard({ squadId }: { squadId: string }) {
                             {isWinningCardInBattle && <span className="ml-2 text-xs font-bold text-primary">(Winner!)</span>}
                           </p>
                           <CricketCard card={selection.card} isFaceUp={true} compact={false} />
-                          {gameState.currentSelectedStatName && selection.card.stats[gameState.currentSelectedStatName] && (
+                          {gameState.currentSelectedStatName && selection.card.stats[gameState.currentSelectedStatName] && 
+                           (gameState.phase === 'reveal' || gameState.phase === 'round_over' || gameState.phase === 'player_turn_respond_to_opponent_challenge') && // Show stat only on these phases
+                           (
                              <div className={cn(
                                "mt-2 p-2 border-2 rounded-lg shadow-md text-center",
                                isWinningCardInBattle ? "border-primary bg-primary/20" : "border-accent bg-accent/10"
@@ -429,7 +451,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
                 )}
                 <p className={cn(
                   "mt-2 text-center w-full px-2",
-                  (gameState.phase === 'reveal' || (gameState.phase === 'round_over' && gameState.currentSelectedCards.length > 0) || gameState.phase === 'player_turn_respond_to_opponent_challenge')
+                  (gameState.phase === 'reveal' || (gameState.phase === 'round_over' && gameState.currentSelectedCards.length > 0) || gameState.phase === 'player_turn_respond_to_opponent_challenge' || gameState.phase === 'opponent_turn_selecting_card')
                     ? "text-lg font-semibold" 
                     : "text-sm text-muted-foreground",
                   gameState.phase === 'reveal' ? "text-accent animate-pulse" : "",
@@ -466,7 +488,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
                     <AlertDescription>
                         {gameState.phase === 'player_turn_select_card' && "Select a card from your hand to play."}
                         {gameState.phase === 'player_turn_select_stat' && (selectedCardByCurrentUser ? `Selected: ${selectedCardByCurrentUser.name}. Now pick a stat.` : "Pick a stat.")}
-                        {gameState.phase === 'player_turn_respond_to_opponent_challenge' && `Opponent has played. Select your card to respond using the challenged stat: ${gameState.currentSelectedStatName && currentUser?.cards[0] ? currentUser.cards[0].stats[gameState.currentSelectedStatName]?.label : ''}.`}
+                        {gameState.phase === 'player_turn_respond_to_opponent_challenge' && `Opponent has played. Select your card to respond using the challenged stat: ${gameState.currentSelectedStatName && currentUser?.cards[0] && currentUser.cards.find(c => c.stats[gameState.currentSelectedStatName!]) ? currentUser.cards.find(c => c.stats[gameState.currentSelectedStatName!])!.stats[gameState.currentSelectedStatName!]?.label : ''}.`}
                     </AlertDescription>
                 </Alert>
             )}
