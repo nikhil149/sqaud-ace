@@ -1,10 +1,10 @@
 
 import type { PlayerCard, CardStats, Player } from '@/types/game';
 import { BatIcon } from '@/components/icons/BatIcon';
-import { ShieldCheck, Users, Dices, Gauge, Target } from 'lucide-react'; // Using Target for bowling
+import { Target, TrendingUp, Zap, Award, Clock } from 'lucide-react'; // ShieldCheck removed, added others
 
 const playerNames = [
-  "Virat K.", "Rohit S.", "Jasprit B.", "Kane W.", "Steve S.", 
+  "Virat K.", "Rohit S.", "Jasprit B.", "Kane W.", "Steve S.",
   "Pat C.", "Babar A.", "Shaheen A.", "Joe R.", "Ben S.",
   "Rashid K.", "Hardik P.", "Shubman G.", "Suryakumar Y.", "Ravindra J.",
   "Mohammed S.", "Kuldeep Y.", "Glenn M.", "David W.", "Mitchell S."
@@ -37,16 +37,22 @@ export function generateDeck(numCards: number = 20): PlayerCard[] {
     const cardName = `${playerName} #${Math.floor(i / playerNames.length) + 1}`;
     const currentHint = dataAiHints[i % dataAiHints.length];
     const cardImage = hintToImageMap[currentHint] || `https://placehold.co/300x400.png`;
-    
+
     deck.push({
       id: `card-${i + 1}`,
       name: cardName,
       image: cardImage,
       dataAiHint: currentHint,
       stats: {
-        batting: createStat("Batting", Math.floor(Math.random() * 70) + 30, BatIcon),
-        bowling: createStat("Bowling", Math.floor(Math.random() * 70) + 30, Target), // Target for bowling
-        fielding: createStat("Fielding", Math.floor(Math.random() * 70) + 30, ShieldCheck),
+        runs: createStat("Runs", Math.floor(Math.random() * 1000) + 50, TrendingUp),
+        battingAverage: createStat("Bat Avg", Math.floor(Math.random() * 40) + 20, BatIcon), // e.g. 20-60
+        bowlingAverage: createStat("Bowl Avg", Math.floor(Math.random() * 35) + 15, Target), // e.g. 15-50 (lower is better)
+        wickets: createStat("Wickets", Math.floor(Math.random() * 150) + 10, Target),
+        battingStrikerate: createStat("Bat SR", Math.floor(Math.random() * 100) + 60, Zap), // e.g. 60-160
+        bowlingStrikerate: createStat("Bowl SR", Math.floor(Math.random() * 50) + 20, Zap), // e.g. 20-70 (lower is better)
+        num100s: createStat("100s", Math.floor(Math.random() * 20), Award),
+        num50s: createStat("50s", Math.floor(Math.random() * 40), Award),
+        oversBowled: createStat("Overs", Math.floor(Math.random() * 500) + 100, Clock),
       },
     });
   }
@@ -58,6 +64,7 @@ export function generateDeck(numCards: number = 20): PlayerCard[] {
  * Ensures that cards are distributed as evenly as possible, resulting in players
  * starting with an equal number of cards if the total number of cards is divisible
  * by the number of players.
+ * This comment was added to clarify the existing behavior based on user feedback.
  */
 export function dealCards(deck: PlayerCard[], numPlayers: number): PlayerCard[][] {
   const shuffledDeck = [...deck].sort(() => Math.random() - 0.5);
@@ -72,24 +79,23 @@ export function dealCards(deck: PlayerCard[], numPlayers: number): PlayerCard[][
  * Initializes player objects with their dealt hands.
  * Both players (user and opponent) receive cards from the 'hands' array,
  * ensuring they start with the cards allocated by the dealCards function.
+ * This comment was added to clarify the existing behavior based on user feedback.
  */
 export function getInitialPlayers(hands: PlayerCard[][]): Player[] {
     return [
-        { 
-            id: 'player1', 
-            name: 'You', 
-            isCurrentUser: true, 
+        {
+            id: 'player1',
+            name: 'You',
+            isCurrentUser: true,
             cards: hands[0] || [], // Player 1 gets the first hand
-            avatarUrl: 'https://placehold.co/100x100.png' 
+            avatarUrl: 'https://placehold.co/100x100.png'
         },
-        { 
-            id: 'player2', 
-            name: 'Opponent', 
-            isCurrentUser: false, 
+        {
+            id: 'player2',
+            name: 'Opponent',
+            isCurrentUser: false,
             cards: hands[1] || [], // Player 2 gets the second hand
-            avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwbGF5ZXIlMjBhdmF0YXJ8ZW58MHx8fHwxNzQ3OTM3MjQwfDA&ixlib=rb-4.1.0&q=80&w=1080' 
+            avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwbGF5ZXIlMjBhdmF0YXJ8ZW58MHx8fHwxNzQ3OTM3MjQwfDA&ixlib=rb-4.1.0&q=80&w=1080'
         },
     ];
 }
-
-    

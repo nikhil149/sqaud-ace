@@ -8,20 +8,33 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader as ShadTableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Trash2, Edit, Shield, Users, CreditCard, Save } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, Shield, Users, CreditCard, Save, TrendingUp, Target, Zap, Award, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from "@/hooks/use-toast";
+import type { CardStats as GameCardStats } from '@/types/game'; // Import the main game's CardStats type
+import { BatIcon } from '@/components/icons/BatIcon';
 
-// Simplified types for admin management
+
+// Use a simpler structure for AdminCard stats, just numbers.
+// The full PlayerStat object from types/game is complex for a simple admin form.
+interface AdminCardStats {
+  runs: number;
+  battingAverage: number;
+  bowlingAverage: number;
+  wickets: number;
+  battingStrikerate: number;
+  bowlingStrikerate: number;
+  num100s: number;
+  num50s: number;
+  oversBowled: number;
+}
+
 interface AdminCard {
   id: string;
   name: string;
   image: string;
-  stats: {
-    batting: number;
-    bowling: number;
-    fielding: number;
-  };
+  stats: AdminCardStats;
+  dataAiHint?: string;
 }
 
 interface AdminUser {
@@ -32,14 +45,40 @@ interface AdminUser {
 }
 
 const initialCards: AdminCard[] = [
-  { id: `card-${Math.random().toString(36).substring(2, 8)}`, name: "Power Hitter Pro", image: "https://placehold.co/100x150.png", stats: { batting: 90, bowling: 50, fielding: 70 }, dataAiHint: "cricket bat" },
-  { id: `card-${Math.random().toString(36).substring(2, 8)}`, name: "Speedster Bowler", image: "https://placehold.co/100x150.png", stats: { batting: 40, bowling: 95, fielding: 65 }, dataAiHint: "cricket ball" },
+  {
+    id: `card-${Math.random().toString(36).substring(2, 8)}`,
+    name: "Legendary Batter",
+    image: "https://placehold.co/100x150.png",
+    stats: { runs: 12000, battingAverage: 55, bowlingAverage: 0, wickets: 5, battingStrikerate: 90, bowlingStrikerate: 0, num100s: 30, num50s: 60, oversBowled: 100 },
+    dataAiHint: "cricket bat"
+  },
+  {
+    id: `card-${Math.random().toString(36).substring(2, 8)}`,
+    name: "Ace Bowler",
+    image: "https://placehold.co/100x150.png",
+    stats: { runs: 1500, battingAverage: 15, bowlingAverage: 22, wickets: 350, battingStrikerate: 70, bowlingStrikerate: 30, num100s: 0, num50s: 5, oversBowled: 2000 },
+    dataAiHint: "cricket ball"
+  },
 ];
 
 const initialUsers: AdminUser[] = [
   { id: `user-${Math.random().toString(36).substring(2, 8)}`, name: "Alice Admin", email: "alice@example.com", role: "admin" },
   { id: `user-${Math.random().toString(36).substring(2, 8)}`, name: "Bob Player", email: "bob@example.com", role: "user" },
 ];
+
+// Helper to get default stats
+const getDefaultStats = (): AdminCardStats => ({
+  runs: 0,
+  battingAverage: 0,
+  bowlingAverage: 0,
+  wickets: 0,
+  battingStrikerate: 0,
+  bowlingStrikerate: 0,
+  num100s: 0,
+  num50s: 0,
+  oversBowled: 0,
+});
+
 
 export default function AdminPage() {
   const [mounted, setMounted] = useState(false);
@@ -51,9 +90,9 @@ export default function AdminPage() {
   const [isEditingCard, setIsEditingCard] = useState<AdminCard | null>(null);
   const [cardName, setCardName] = useState('');
   const [cardImage, setCardImage] = useState('');
-  const [cardBatting, setCardBatting] = useState('');
-  const [cardBowling, setCardBowling] = useState('');
-  const [cardFielding, setCardFielding] = useState('');
+  const [cardStats, setCardStats] = useState<AdminCardStats>(getDefaultStats());
+  const [cardDataAiHint, setCardDataAiHint] = useState('');
+
 
   // Users State
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -65,27 +104,27 @@ export default function AdminPage() {
   useEffect(() => {
     setMounted(true);
     setCurrentYear(new Date().getFullYear().toString());
-    // Initialize with some default items after mount to ensure client-side IDs
     setCards(initialCards.map(c => ({...c, id: `card-${Math.random().toString(36).substring(2, 8)}` })));
     setUsers(initialUsers.map(u => ({...u, id: `user-${Math.random().toString(36).substring(2, 8)}` })));
   }, []);
 
+  const handleStatChange = (statName: keyof AdminCardStats, value: string) => {
+    setCardStats(prev => ({ ...prev, [statName]: parseInt(value, 10) || 0 }));
+  };
+
   // Card CRUD Functions
   const handleCardSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!cardName || !cardImage || !cardBatting || !cardBowling || !cardFielding) {
-      toast({ title: "Error", description: "All card fields are required.", variant: "destructive" });
+    if (!cardName || !cardImage) {
+      toast({ title: "Error", description: "Card name and image URL are required.", variant: "destructive" });
       return;
     }
     const newCard: AdminCard = {
       id: isEditingCard ? isEditingCard.id : `card-${Math.random().toString(36).substring(2, 8)}`,
       name: cardName,
       image: cardImage,
-      stats: {
-        batting: parseInt(cardBatting, 10),
-        bowling: parseInt(cardBowling, 10),
-        fielding: parseInt(cardFielding, 10),
-      },
+      stats: cardStats,
+      dataAiHint: cardDataAiHint,
     };
 
     if (isEditingCard) {
@@ -102,9 +141,8 @@ export default function AdminPage() {
     setIsEditingCard(card);
     setCardName(card.name);
     setCardImage(card.image);
-    setCardBatting(card.stats.batting.toString());
-    setCardBowling(card.stats.bowling.toString());
-    setCardFielding(card.stats.fielding.toString());
+    setCardStats(card.stats);
+    setCardDataAiHint(card.dataAiHint || '');
   };
 
   const deleteCard = (id: string) => {
@@ -116,9 +154,8 @@ export default function AdminPage() {
     setIsEditingCard(null);
     setCardName('');
     setCardImage('');
-    setCardBatting('');
-    setCardBowling('');
-    setCardFielding('');
+    setCardStats(getDefaultStats());
+    setCardDataAiHint('');
   };
 
   // User CRUD Functions
@@ -172,6 +209,18 @@ export default function AdminPage() {
     );
   }
 
+  const statFields: { key: keyof AdminCardStats; label: string; icon?: React.ComponentType<any> }[] = [
+    { key: 'runs', label: 'Runs', icon: TrendingUp },
+    { key: 'battingAverage', label: 'Batting Avg', icon: BatIcon },
+    { key: 'bowlingAverage', label: 'Bowling Avg (Lower is better)', icon: Target },
+    { key: 'wickets', label: 'Wickets', icon: Target },
+    { key: 'battingStrikerate', label: 'Batting SR', icon: Zap },
+    { key: 'bowlingStrikerate', label: 'Bowling SR (Lower is better)', icon: Zap },
+    { key: 'num100s', label: '100s', icon: Award },
+    { key: 'num50s', label: '50s', icon: Award },
+    { key: 'oversBowled', label: 'Overs Bowled', icon: Clock },
+  ];
+
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background to-secondary/30">
       <header className="py-6 px-4 md:px-8 bg-primary text-primary-foreground shadow-md">
@@ -195,8 +244,8 @@ export default function AdminPage() {
             <CardTitle className="text-card-foreground flex items-center gap-2"><CreditCard /> Manage Cards</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleCardSubmit} className="space-y-4 mb-6 p-4 border rounded-lg bg-muted/30">
-              <h3 className="text-lg font-semibold">{isEditingCard ? 'Edit Card' : 'Add New Card'}</h3>
+            <form onSubmit={handleCardSubmit} className="space-y-6 mb-6 p-4 border rounded-lg bg-muted/30">
+              <h3 className="text-xl font-semibold mb-4">{isEditingCard ? 'Edit Card' : 'Add New Card'}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="cardName">Card Name</Label>
@@ -206,22 +255,31 @@ export default function AdminPage() {
                   <Label htmlFor="cardImage">Image URL</Label>
                   <Input id="cardImage" value={cardImage} onChange={e => setCardImage(e.target.value)} placeholder="https://placehold.co/100x150.png" className="mt-1 bg-background" />
                 </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="cardBatting">Batting Stat</Label>
-                  <Input id="cardBatting" type="number" value={cardBatting} onChange={e => setCardBatting(e.target.value)} placeholder="0-100" className="mt-1 bg-background" />
-                </div>
-                <div>
-                  <Label htmlFor="cardBowling">Bowling Stat</Label>
-                  <Input id="cardBowling" type="number" value={cardBowling} onChange={e => setCardBowling(e.target.value)} placeholder="0-100" className="mt-1 bg-background" />
-                </div>
-                <div>
-                  <Label htmlFor="cardFielding">Fielding Stat</Label>
-                  <Input id="cardFielding" type="number" value={cardFielding} onChange={e => setCardFielding(e.target.value)} placeholder="0-100" className="mt-1 bg-background" />
+                 <div>
+                  <Label htmlFor="cardDataAiHint">Data AI Hint (for image search)</Label>
+                  <Input id="cardDataAiHint" value={cardDataAiHint} onChange={e => setCardDataAiHint(e.target.value)} placeholder="E.g., cricket bat" className="mt-1 bg-background" />
                 </div>
               </div>
-              <div className="flex gap-2">
+              <h4 className="text-lg font-medium mt-4 mb-2">Card Stats:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {statFields.map(field => (
+                  <div key={field.key}>
+                    <Label htmlFor={`cardStat-${field.key}`} className="flex items-center">
+                      {field.icon && <field.icon className="mr-2 h-4 w-4 text-muted-foreground" />}
+                      {field.label}
+                    </Label>
+                    <Input
+                      id={`cardStat-${field.key}`}
+                      type="number"
+                      value={cardStats[field.key]}
+                      onChange={e => handleStatChange(field.key, e.target.value)}
+                      placeholder="0"
+                      className="mt-1 bg-background"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-4">
                 <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">
                   {isEditingCard ? <Save className="mr-2 h-5 w-5" /> : <PlusCircle className="mr-2 h-5 w-5" />}
                   {isEditingCard ? 'Update Card' : 'Add Card'}
@@ -239,9 +297,9 @@ export default function AdminPage() {
                     <TableRow>
                       <TableHead className="text-foreground">Name</TableHead>
                       <TableHead className="text-foreground">Image</TableHead>
-                      <TableHead className="text-foreground">Batting</TableHead>
-                      <TableHead className="text-foreground">Bowling</TableHead>
-                      <TableHead className="text-foreground">Fielding</TableHead>
+                      {statFields.map(field => (
+                         <TableHead key={`head-${field.key}`} className="text-foreground whitespace-nowrap">{field.label.replace(' (Lower is better)', '')}</TableHead>
+                      ))}
                       <TableHead className="text-right text-foreground">Actions</TableHead>
                     </TableRow>
                   </ShadTableHeader>
@@ -250,12 +308,12 @@ export default function AdminPage() {
                       <TableRow key={card.id}>
                         <TableCell className="text-foreground font-medium">{card.name}</TableCell>
                         <TableCell>
-                          <img src={card.image} alt={card.name} className="h-16 w-auto rounded object-cover" data-ai-hint="card illustration" />
+                          <img src={card.image} alt={card.name} className="h-16 w-auto rounded object-cover" data-ai-hint={card.dataAiHint || "card illustration"} />
                         </TableCell>
-                        <TableCell className="text-foreground">{card.stats.batting}</TableCell>
-                        <TableCell className="text-foreground">{card.stats.bowling}</TableCell>
-                        <TableCell className="text-foreground">{card.stats.fielding}</TableCell>
-                        <TableCell className="text-right space-x-2">
+                        {statFields.map(field => (
+                           <TableCell key={`cell-${card.id}-${field.key}`} className="text-foreground">{card.stats[field.key]}</TableCell>
+                        ))}
+                        <TableCell className="text-right space-x-2 whitespace-nowrap">
                           <Button variant="outline" size="sm" onClick={() => editCard(card)}>
                             <Edit className="mr-1 h-4 w-4" /> Edit
                           </Button>
@@ -360,5 +418,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    

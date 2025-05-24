@@ -1,3 +1,4 @@
+
 export interface PlayerStat {
   label: string;
   value: number;
@@ -5,10 +6,16 @@ export interface PlayerStat {
 }
 
 export interface CardStats {
-  batting: PlayerStat;
-  bowling: PlayerStat;
-  fielding: PlayerStat;
-  [key: string]: PlayerStat; // Index signature
+  runs: PlayerStat;
+  battingAverage: PlayerStat;
+  bowlingAverage: PlayerStat; // Lower is better
+  wickets: PlayerStat;
+  battingStrikerate: PlayerStat;
+  bowlingStrikerate: PlayerStat; // Lower is better
+  num100s: PlayerStat;
+  num50s: PlayerStat;
+  oversBowled: PlayerStat;
+  // [key: string]: PlayerStat; // Index signature can be removed if all stats are explicit
 }
 
 export interface PlayerCard {
@@ -32,9 +39,9 @@ export type GamePhase =
   | "toss"
   | "player_turn_select_card"
   | "player_turn_select_stat"
-  | "opponent_turn_selecting_card" // Opponent is selecting a card to respond to user's stat challenge
-  | "opponent_turn_select_card_and_stat" // Opponent is starting the round, selecting card and stat
-  | "player_turn_respond_to_opponent_challenge" // Player needs to select a card to respond to opponent's challenge
+  | "opponent_turn_selecting_card"
+  | "opponent_turn_select_card_and_stat"
+  | "player_turn_respond_to_opponent_challenge"
   | "reveal"
   | "round_over"
   | "game_over";
@@ -42,14 +49,15 @@ export type GamePhase =
 export interface GameState {
   squadId: string;
   players: Player[];
-  deck: PlayerCard[]; // All unique cards in the game
-  currentPlayerId: string | null; // Tracks overall current player (e.g., after toss, or who starts the current round)
-  turnPlayerId: string | null; // Tracks whose specific action it is (select card, select stat)
+  deck: PlayerCard[];
+  currentPlayerId: string | null;
+  turnPlayerId: string | null;
   phase: GamePhase;
-  currentSelectedCards: { playerId: string; card: PlayerCard }[]; // Cards selected this round
+  currentSelectedCards: { playerId: string; card: PlayerCard }[];
   currentSelectedStatName: keyof CardStats | null;
-  roundMessage: string; // Message for toss result, round winner, etc.
+  roundMessage: string;
   gameWinnerId: string | null;
   inviteCode: string;
-  lastRoundWinnerId: string | null; // ID of the player who won the last completed round
+  lastRoundWinnerId: string | null;
+  isPaused: boolean;
 }
