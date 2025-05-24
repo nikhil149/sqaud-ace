@@ -55,11 +55,12 @@ export function GameBoard({ squadId }: { squadId: string }) {
     setCountdown(null);
   }, []);
 
-  // Refs for core game logic functions
+  // Refs for core game logic functions to ensure they always have the latest state
   const simulateOpponentActionRef = useRef<() => void>(() => {});
   const resolveRoundRef = useRef<() => void>(() => {});
   const checkGameOverRef = useRef<() => void>(() => {});
   const prepareNextTurnRef = useRef<() => void>(() => {});
+
 
   const handleCardSelect = useCallback((card: PlayerCardType) => {
     if (!gameState || gameState.phase !== 'player_turn_select_card' || gameState.players.find(p=>p.isCurrentUser)?.id !== gameState.turnPlayerId) return;
@@ -188,7 +189,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
             return;
         }
         
-        const userChosenStatLabel = userCardSelection.card.stats[currentStatName]
+        const userChosenStatLabel = userCardSelection.card.stats[currentStatName] 
                                   ? userCardSelection.card.stats[currentStatName].label
                                   : 'selected stat';
 
@@ -245,12 +246,14 @@ export function GameBoard({ squadId }: { squadId: string }) {
     const player1StatValue = player1Card.stats[statName].value;
     const player2StatValue = player2Card.stats[statName].value;
 
-    let roundWinnerId: string;
-    let roundLoserId: string;
-    let winningCard: PlayerCardType;
-    let losingCard: PlayerCardType;
+    let roundWinnerId: string | null = null;
+    let roundLoserId: string | null = null;
+    let winningCard: PlayerCardType | null = null;
+    let losingCard: PlayerCardType | null = null;
     let roundMessageText = "";
     let roundEndDelay = ROUND_END_DELAY_WIN_LOSS;
+    let lastRoundWinnerForStateUpdate: string | null = null;
+
 
     if (player1StatValue > player2StatValue) {
       roundWinnerId = player1.id;
@@ -270,6 +273,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
         turnPlayerId: null,
         currentSelectedCards: gameState.currentSelectedCards,
         roundMessage: roundMessageText,
+        lastRoundWinnerId: null, // Explicitly set to null for draw
       });
        const currentUserForLastPlayedDraw = gameState.players.find(p => p.isCurrentUser);
         if (currentUserForLastPlayedDraw) {
@@ -281,13 +285,14 @@ export function GameBoard({ squadId }: { squadId: string }) {
       setTimeout(() => checkGameOverRef.current(), roundEndDelay);
       return;
     }
-
-    const winnerPlayer = gameState.players.find(p => p.id === roundWinnerId)!;
-    const winningStatLabel = winningCard.stats[statName].label;
-    const winningStatValue = winningCard.stats[statName].value;
-    const losingStatValue = losingCard.stats[statName].value;
     
-    roundMessageText = `${winnerPlayer.name} won with ${winningStatLabel} (${winningStatValue} vs ${losingStatValue}) and takes ${losingCard.name}!`;
+    lastRoundWinnerForStateUpdate = roundWinnerId;
+    const winnerPlayer = gameState.players.find(p => p.id === roundWinnerId)!;
+    const winningStatLabel = winningCard!.stats[statName].label;
+    const winningStatValue = winningCard!.stats[statName].value;
+    const losingStatValue = losingCard!.stats[statName].value;
+    
+    roundMessageText = `${winnerPlayer.name} won with ${winningStatLabel} (${winningStatValue} vs ${losingStatValue}) and takes ${losingCard!.name}!`;
     
     toast({
       title: "Round Result",
@@ -295,12 +300,12 @@ export function GameBoard({ squadId }: { squadId: string }) {
     });
 
     const updatedPlayers = gameState.players.map(p => {
-      if (p.id === roundWinnerId) {
+      if (p.id === roundWinnerId && losingCard) {
         let newHand = [...p.cards];
         if (!newHand.find(c => c.id === losingCard.id)) {
             newHand.push(losingCard);
         }
-         if (!newHand.find(c => c.id === winningCard.id) && winningCard.id !== losingCard.id) {
+         if (winningCard && !newHand.find(c => c.id === winningCard.id) && winningCard.id !== losingCard.id) {
              newHand.push(winningCard);
          }
         const uniqueCards = newHand.reduce((acc, current) => {
@@ -311,7 +316,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
         }, [] as PlayerCardType[]);
         return { ...p, cards: uniqueCards };
       }
-      if (p.id === roundLoserId) {
+      if (p.id === roundLoserId && losingCard) {
         return { ...p, cards: p.cards.filter(c => c.id !== losingCard.id) };
       }
       return p;
@@ -331,6 +336,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
       turnPlayerId: null, 
       currentSelectedCards: gameState.currentSelectedCards,
       roundMessage: roundMessageText,
+      lastRoundWinnerId: lastRoundWinnerForStateUpdate,
     });
 
     setTimeout(() => checkGameOverRef.current(), roundEndDelay);
@@ -352,33 +358,30 @@ export function GameBoard({ squadId }: { squadId: string }) {
     clearTurnTimers();
     if(!gameState || gameState.phase === 'game_over' || !gameState.players || !gameState.deck) return;
 
-    let actualNextPlayerId = gameState.currentPlayerId;
-    const lastRoundWasDraw = gameState.roundMessage?.toLowerCase().includes("draw") ?? false;
+    let actualNextPlayerId: string;
 
-    if (!lastRoundWasDraw) {
-       actualNextPlayerId = gameState.players.find(p => p.id !== gameState.currentPlayerId)?.id || 'player1';
+    if (gameState.lastRoundWinnerId) {
+      // If there was a winner last round, they start the next round.
+      actualNextPlayerId = gameState.lastRoundWinnerId;
     } else {
-        // If it was a draw, the same player who initiated the drawn round might start again.
-        // Or, you might want to enforce alternation even on draws.
-        // For now, if draw, current player (who initiated) continues.
-        // No change to actualNextPlayerId needed if it's already set to currentPlayerId that drew.
-        // If currentPlayerId was null (e.g. first turn toss), this still needs careful thought.
-        // Let's assume for draw, the turn player remains the same.
-        actualNextPlayerId = gameState.currentPlayerId; 
+      // If last round was a draw (lastRoundWinnerId is null), 
+      // or it's the very first turn (lastRoundWinnerId is null, currentPlayerId is toss winner),
+      // the player who initiated the previous action (or the toss winner) goes again.
+      // gameState.currentPlayerId at this point is the player whose turn it was for the round that just completed.
+      actualNextPlayerId = gameState.currentPlayerId!; // Should always be set if game is ongoing
     }
     
-    // Ensure actualNextPlayerId is valid. Fallback if necessary.
+    // Fallback if actualNextPlayerId is somehow invalid
     if (!gameState.players.find(p => p.id === actualNextPlayerId)) {
         actualNextPlayerId = gameState.players[0]?.id || 'player1'; 
     }
 
-
     const nextPlayerToAct = gameState.players.find(p => p.id === actualNextPlayerId);
-    setSelectedCardByCurrentUser(null); // Already cleared in handleCardSelect/Response if that's the flow. This is a good safeguard.
+    setSelectedCardByCurrentUser(null); 
 
     updateGameState({
-      currentPlayerId: actualNextPlayerId,
-      turnPlayerId: actualNextPlayerId,
+      currentPlayerId: actualNextPlayerId, // This player will start the NEW round.
+      turnPlayerId: actualNextPlayerId,    // It's this player's turn to act.
       phase: nextPlayerToAct?.isCurrentUser ? 'player_turn_select_card' : 'opponent_turn_select_card_and_stat',
       currentSelectedCards: [],
       currentSelectedStatName: null,
@@ -390,8 +393,8 @@ export function GameBoard({ squadId }: { squadId: string }) {
     }
   }, [
     gameState?.phase, 
-    gameState?.currentPlayerId, 
-    gameState?.roundMessage, 
+    gameState?.currentPlayerId,
+    gameState?.lastRoundWinnerId, // Added dependency
     gameState?.players, 
     gameState?.deck,
     clearTurnTimers, 
@@ -407,13 +410,11 @@ export function GameBoard({ squadId }: { squadId: string }) {
     clearTurnTimers();
     if(!gameState || !gameState.players || !gameState.deck) {
         console.warn("Check game over called with incomplete state.");
-        // Potentially try to re-initialize or show error, but for now, may call prepareNextTurn if it's safe
-        // prepareNextTurnRef.current(); // This might loop if state is persistently bad.
         return;
     }
     
     const currentPlayers = gameState.players;
-    const currentDeckLength = gameState.deck.length; // Use stored deck length
+    const currentDeckLength = gameState.deck.length; 
 
     const playerWithAllCards = currentPlayers.find(p => p.cards.length === currentDeckLength);
     const playerWithNoCards = currentPlayers.find(p => p.cards.length === 0);
@@ -523,7 +524,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
     updateGameState({
       squadId,
       players: playersData,
-      deck: initialDeck, // Store the full deck
+      deck: initialDeck, 
       currentPlayerId: null,
       turnPlayerId: null,
       phase: 'lobby',
@@ -532,6 +533,7 @@ export function GameBoard({ squadId }: { squadId: string }) {
       roundMessage: 'Welcome to Squad Ace! Click "Start Game" to begin.',
       gameWinnerId: null,
       inviteCode: `SQD-${squadId.substring(0, 4).toUpperCase()}`,
+      lastRoundWinnerId: null, // Initialize new field
     });
     setSelectedCardByCurrentUser(null);
     setLastPlayedCardIdByCurrentUser(null);
@@ -577,8 +579,8 @@ export function GameBoard({ squadId }: { squadId: string }) {
     if (!firstPlayer || !gameState) return;
 
     updateGameState({
-      currentPlayerId: tossWinnerPlayerId, // This player will be the one to make the first move.
-      turnPlayerId: tossWinnerPlayerId, // It's this player's turn to act.
+      currentPlayerId: tossWinnerPlayerId, 
+      turnPlayerId: tossWinnerPlayerId, 
       phase: firstPlayer.isCurrentUser ? 'player_turn_select_card' : 'opponent_turn_select_card_and_stat',
       roundMessage: `${firstPlayer.name} won the toss! ${firstPlayer.isCurrentUser ? "Select a card." : "Opponent is selecting a card and stat."}`,
     });
@@ -831,5 +833,3 @@ export function GameBoard({ squadId }: { squadId: string }) {
     </div>
   );
 }
-
-    

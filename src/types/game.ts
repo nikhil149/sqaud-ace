@@ -43,7 +43,7 @@ export interface GameState {
   squadId: string;
   players: Player[];
   deck: PlayerCard[]; // All unique cards in the game
-  currentPlayerId: string | null; // Tracks overall current player (e.g., after toss)
+  currentPlayerId: string | null; // Tracks overall current player (e.g., after toss, or who starts the current round)
   turnPlayerId: string | null; // Tracks whose specific action it is (select card, select stat)
   phase: GamePhase;
   currentSelectedCards: { playerId: string; card: PlayerCard }[]; // Cards selected this round
@@ -51,4 +51,5 @@ export interface GameState {
   roundMessage: string; // Message for toss result, round winner, etc.
   gameWinnerId: string | null;
   inviteCode: string;
+  lastRoundWinnerId: string | null; // ID of the player who won the last completed round
 }
