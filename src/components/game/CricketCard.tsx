@@ -35,7 +35,7 @@ export function CricketCard({
   };
 
   const StatDisplay = ({ statKey, stat }: { statKey: keyof CardStats, stat: CardStats[keyof CardStats] }) => (
-    <div className={cn("flex items-center justify-between text-sm", compact ? "py-0.5" : "py-1")}>
+    <div className={cn("flex items-center justify-between text-xs", "py-0.5")}>
       <div className="flex items-center gap-2">
         {stat.icon && <stat.icon className={cn("h-4 w-4", compact ? "h-3 w-3" : "")} />}
         <span>{stat.label}</span>
@@ -44,8 +44,8 @@ export function CricketCard({
       {showStatSelection && onStatSelect && (
         <Button
           variant="outline"
-          size={compact ? "sm" : "sm"}
-          className={cn("ml-2", compact ? "px-1 py-0.5 text-xs h-6" : "px-2 py-1 text-xs h-7")}
+          size="sm" // size="sm" is already small
+          className={cn("ml-2 px-1 py-0.5 text-xs h-6")} // Explicitly make button smaller
           onClick={(e) => {
             e.stopPropagation(); // Prevent card click
             onStatSelect(statKey);
@@ -61,23 +61,23 @@ export function CricketCard({
     <div
       className={cn(
         "card-container rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300",
-        compact ? "w-32 h-48" : "w-48 h-72 md:w-56 md:h-[22rem]",
+        compact ? "w-32" : "w-48 md:w-56", // Removed fixed height
         isSelected && isFaceUp ? "ring-4 ring-accent" : "",
         onCardClick && isFaceUp ? "cursor-pointer" : "",
-        !isFaceUp && "flipped", // Apply 'flipped' to card-container when not face up
+        !isFaceUp && "flipped",
         className
       )}
       onClick={handleCardClick}
     >
-      <div className={cn("card-inner")}> {/* 'flipped' class removed from here */}
-        <Card className={cn("card-front bg-card overflow-hidden", compact ? "p-2" : "p-0")}>
+      <div className={cn("card-inner")}>
+        <Card className={cn("card-front bg-card overflow-hidden flex flex-col h-full", compact ? "p-0" : "p-0")}>
           {card && (
             <>
-              <CardHeader className={cn("p-2", compact ? "pb-1" : "p-4")}>
-                <CardTitle className={cn("truncate", compact ? "text-sm" : "text-lg")}>{card.name}</CardTitle>
+              <CardHeader className={cn(compact ? "p-2 pb-1" : "p-3 pb-1")}>
+                <CardTitle className={cn("truncate", compact ? "text-sm" : "text-base")}>{card.name}</CardTitle>
               </CardHeader>
-              <CardContent className={cn(compact ? "p-2 pt-0" : "p-4 pt-0")}>
-                <div className={cn("relative", compact ? "h-20 mb-1" : "h-32 md:h-40 mb-2")}>
+              <CardContent className={cn("flex-grow", compact ? "p-2 pt-0" : "p-3 pt-1")}>
+                <div className={cn("relative mx-auto", compact ? "w-24 h-20 mb-1" : "w-full h-24 md:h-28 mb-2")}>
                   <Image
                     src={card.image}
                     alt={card.name}
@@ -87,7 +87,7 @@ export function CricketCard({
                     data-ai-hint={card.dataAiHint}
                   />
                 </div>
-                {!compact && <CardDescription className="text-xs mb-2">Stats:</CardDescription>}
+                {/* Removed CardDescription for stats to save space, assuming StatDisplay is clear enough */}
                 {Object.entries(card.stats).map(([key, stat]) => (
                   <StatDisplay key={key} statKey={key as keyof CardStats} stat={stat} />
                 ))}
@@ -95,7 +95,7 @@ export function CricketCard({
             </>
           )}
         </Card>
-        <Card className={cn("card-back bg-secondary flex items-center justify-center", compact ? "p-2" : "")}>
+        <Card className={cn("card-back bg-secondary flex items-center justify-center h-full", compact ? "p-2" : "")}>
           <div className="text-center">
             <h3 className={cn("font-bold text-secondary-foreground", compact ? "text-lg" : "text-2xl")}>Squad Ace</h3>
             {!compact && <p className="text-sm text-secondary-foreground/80">Cricket Card Game</p>}
