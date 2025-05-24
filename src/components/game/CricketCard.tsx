@@ -61,7 +61,7 @@ export function CricketCard({
     <div
       className={cn(
         "card-container rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300",
-        compact ? "w-32" : "w-48 md:w-56", // Removed fixed height
+        compact ? "w-32" : "w-48 md:w-56",
         isSelected && isFaceUp ? "ring-4 ring-accent" : "",
         onCardClick && isFaceUp ? "cursor-pointer" : "",
         !isFaceUp && "flipped",
@@ -70,7 +70,7 @@ export function CricketCard({
       onClick={handleCardClick}
     >
       <div className={cn("card-inner")}>
-        <Card className={cn("card-front bg-card overflow-hidden flex flex-col h-full", compact ? "p-0" : "p-0")}>
+        <Card className={cn("card-front bg-card flex flex-col", compact ? "p-0" : "p-0")}>
           {card && (
             <>
               <CardHeader className={cn(compact ? "p-2 pb-1" : "p-3 pb-1")}>
@@ -87,7 +87,6 @@ export function CricketCard({
                     data-ai-hint={card.dataAiHint}
                   />
                 </div>
-                {/* Removed CardDescription for stats to save space, assuming StatDisplay is clear enough */}
                 {Object.entries(card.stats).map(([key, stat]) => (
                   <StatDisplay key={key} statKey={key as keyof CardStats} stat={stat} />
                 ))}
@@ -95,7 +94,7 @@ export function CricketCard({
             </>
           )}
         </Card>
-        <Card className={cn("card-back bg-secondary flex items-center justify-center h-full", compact ? "p-2" : "")}>
+        <Card className={cn("card-back bg-secondary flex items-center justify-center", compact ? "p-2" : "")}>
           <div className="text-center">
             <h3 className={cn("font-bold text-secondary-foreground", compact ? "text-lg" : "text-2xl")}>Squad Ace</h3>
             {!compact && <p className="text-sm text-secondary-foreground/80">Cricket Card Game</p>}
